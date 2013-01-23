@@ -61,9 +61,11 @@ int main( int argc, char** argv ) {
     bool motion = true;
 
     int cannyValue = 30;
+    int thresholdValue = 17;
 
 	cv::namedWindow("playground", CV_WINDOW_NORMAL);
     cv::createTrackbar("canny", "playground", &cannyValue, 70);
+    cv::createTrackbar("threshold", "playground", &thresholdValue, 70);
 
 	cv::VideoCapture cap(CV_CAP_ANY); // open the default camera
 	if (!cap.isOpened()) {
