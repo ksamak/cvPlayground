@@ -57,7 +57,11 @@ void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double sca
 // detect faces, do stuff on it.
 
 int main( int argc, char** argv ) {
+	int threshold = 17;
 	cv::namedWindow("playground", CV_WINDOW_NORMAL);
+	cv::createTrackbar("Adaptive threshold", "playground", &threshold, 40);
+
+	
 	cv::Mat image = cv::imread("DSC_0015.JPG");
 	cv::cvtColor(image, image, CV_RGB2GRAY);
 	cv::Mat copy = image.clone();
@@ -75,16 +79,17 @@ int main( int argc, char** argv ) {
 		cv::cvtColor(frame, edges, CV_BGR2GRAY);
 		cv::GaussianBlur(edges, edges, cv::Size(7,7), 1.5, 1.5);
 		cv::Canny(edges, edges, 0, 30, 3);
-		cv::imshow("edges", edges);
+		cv::imshow("playground", edges);
 		if(cv::waitKey(30) >= 0) break;
 	}
 
+	/*
 	for (int i = 0; i < 70; i++) {
 		//void adaptiveThreshold(const Mat& src, Mat& dst, double maxValue, int adaptiveMethod, int thresholdType, int blockSize, double C)
 		cv::adaptiveThreshold(image, copy, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 3, i);
 		cv::imshow("playground", copy);
 		cv::waitKey(0);
-	}
+	}*/
 }
 
 
