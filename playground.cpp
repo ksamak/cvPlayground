@@ -68,6 +68,7 @@ int main( int argc, char** argv ) {
 
 	cv::VideoCapture cap(0); // open the default camera
 	if (!cap.isOpened()) {
+		cout << "FAIL!" << endl;
 		return -1;
 	}
 
