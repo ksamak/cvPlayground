@@ -4,7 +4,7 @@ project( visionNetLights )
 
 find_package( OpenCV REQUIRED )
 
-add_executable( visionForNetLights main.cpp )
+add_executable( visionForNetLights playground.cpp )
 
 target_link_libraries(
 	visionForNetLights
