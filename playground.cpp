@@ -16,7 +16,7 @@ using std::cout;
 using std::endl;
 using cv::Mat;
 
-int32_t getMotionRatio2(cv::Mat image, cv::Mat previous, cv::Mat flow) {
+int32_t getMotionRatio(cv::Mat image, cv::Mat previous, cv::Mat& flow) {
 #ifdef DEBUG
 	Utils::clockStart();
 #endif
@@ -57,40 +57,46 @@ void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double sca
 // detect faces, do stuff on it.
 
 int main( int argc, char** argv ) {
-	int threshold = 17;
+    bool canny = false;
+    bool motion = true;
+
+    int cannyValue = 30;
+
 	cv::namedWindow("playground", CV_WINDOW_NORMAL);
-	cv::createTrackbar("Adaptive threshold", "playground", &threshold, 40);
+    cv::createTrackbar("canny", "playground", &cannyValue, 70);
 
-	
-	cv::Mat image = cv::imread("DSC_0015.JPG");
-	cv::cvtColor(image, image, CV_RGB2GRAY);
-	cv::Mat copy = image.clone();
-
-	cv::VideoCapture cap(0); // open the default camera
+	cv::VideoCapture cap(CV_CAP_ANY); // open the default camera
 	if (!cap.isOpened()) {
 		cout << "FAIL!" << endl;
 		return -1;
 	}
 
-	Mat edges;
-	cv::namedWindow("edges",1);
+    Mat frame, previousFrame, flow;
+    cap >> frame;
+    cv::cvtColor(frame, frame, CV_BGR2GRAY);
 	while (true) {
-		Mat frame;
+        cv::Mat processed;
+        previousFrame = frame;
 		cap >> frame; // get a new frame from camera
-		cv::cvtColor(frame, edges, CV_BGR2GRAY);
-		cv::GaussianBlur(edges, edges, cv::Size(7,7), 1.5, 1.5);
-		cv::Canny(edges, edges, 0, 30, 3);
-		cv::imshow("playground", edges);
+        cv::cvtColor(frame, frame, CV_BGR2GRAY);
+
+        if (canny) {
+            cv::GaussianBlur(frame, frame, cv::Size(7,7), 1.5, 1.5);
+            cv::Canny(frame, processed, 0, cannyValue, 3);
+        } else if (motion) {
+            cv::calcOpticalFlowFarneback(frame, previousFrame, flow, 0.5, 3, 3, 1, 5, 1.2, 0);
+            flow = cv::abs(flow);
+            cv::Scalar res = cv::sum(flow);
+            std::cout << "flow total : " << res.val[0] + res.val[1] << std::endl;
+            cv::cvtColor(frame, processed, CV_GRAY2RGB);
+            drawOptFlowMap(flow, processed, 4, 1.5, CV_RGB(0, 255, 0));
+        }
+
+
+        //cv::resize(frame, frame, cv::Size(16,16));
+		cv::imshow("playground", processed);
 		if(cv::waitKey(30) >= 0) break;
 	}
-
-	/*
-	for (int i = 0; i < 70; i++) {
-		//void adaptiveThreshold(const Mat& src, Mat& dst, double maxValue, int adaptiveMethod, int thresholdType, int blockSize, double C)
-		cv::adaptiveThreshold(image, copy, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 3, i);
-		cv::imshow("playground", copy);
-		cv::waitKey(0);
-	}*/
 }
 
 
