@@ -111,10 +111,10 @@ int main( int argc, char** argv ) {
             }
             cv::calcOpticalFlowFarneback(frame, previousFrame, flow, 0.5, 3, 5, 1, 5, 1.2, 0);
             flow = cv::abs(flow);
-            cv::threshold(flow, flow, thresholdVal*1000, 0, cv::THRESH_TOZERO);
+            cv::threshold(flow, flow, thresholdVal*1000, 0, cv::THRESH_TOZERO);  // FIXME
             cv::Scalar res = cv::sum(flow);
             std::cout << "flow total : " << res.val[0] + res.val[1] << std::endl;
-            cv::cvtColor(frame, processed, CV_GRAY2RGB);
+            cv::cvtColor(processed, processed, CV_GRAY2RGB);
             drawOptFlowMap(flow, processed, 4, 1.5, CV_RGB(0, 255, 0));
         }
 
