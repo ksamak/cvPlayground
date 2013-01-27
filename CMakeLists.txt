@@ -11,3 +11,11 @@ target_link_libraries(
 	visionForNetLights
        	${OpenCV_LIBS}
        	)
+
+add_executable( faceRecognition
+    faceRecognition.cpp )
+
+target_link_libraries(
+    faceRecognition
+       	${OpenCV_LIBS}
+       	)

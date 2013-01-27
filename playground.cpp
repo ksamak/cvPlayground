@@ -1,42 +1,24 @@
-#include <cv.h>
-#include <highgui.h>
-#include <string>
-#include <iostream>
+
+// use if opencv ws compiled?
+//#include <cv.h>
+//#include <highgui.h>
 //#include <imgproc.hpp>
-#include <exception>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/video/tracking.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
+//#define DEBUG
 
 //#include <stdint.h>
-//#include <opencv2/core/core.hpp>
-//#include <opencv2/highgui/highgui.hpp>
-//#include <opencv2/video/tracking.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-//#define DEBUG
+#include <string>
+#include <iostream>
+#include <exception>
 
 using std::cout;
 using std::endl;
 using cv::Mat;
-
-int32_t getMotionRatio(cv::Mat image, cv::Mat previous, cv::Mat& flow) {
-#ifdef DEBUG
-    Utils::clockStart();
-#endif
-    try {
-        cv::calcOpticalFlowFarneback(previous, image, flow, 0.5, 3, 3, 1, 5, 1.2, 0);
-    } catch(cv::Exception e) {
-        cout << e.what() << endl;
-    }
-    //uint32_t timing = Utils::clockEnd();
-    //DLOG(INFO) << "farnBack timing: " << timing;
-    flow = cv::abs(flow);
-    cv::Scalar res = cv::sum(flow);
-#ifdef DEBUG
-    cv::Mat imageControl;
-    cv::cvtColor(image, imageControl, CV_GRAY2RGB);
-    cv::drawOptFlowMap(_flow, imageControl, _controlImageInterval, 1.5, CV_RGB(0, 255, 0));
-    _manager->generateDebugImage(imageControl, QString("Motion Vectors feedback, motion = %1").arg(res.val[0] + res.val[1]).toStdString(), typeid(*this).name());
-#endif
-    return res.val[0] + res.val[1];
-}
 
 
 void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double scale, const cv::Scalar& color) {
@@ -117,6 +99,13 @@ int main( int argc, char** argv ) {
             cv::cvtColor(processed, processed, CV_GRAY2RGB);
             drawOptFlowMap(flow, processed, 4, 1.5, CV_RGB(0, 255, 0));
         }
+        // TODO face detection
+        // TODO trollfaces
+        // TODO background filter
+        //
+
+        // TODO: train a face live?
+        // Methodo: get face. get images from face. rotate and crop. re-train the algo.
 
 
         cv::imshow("playground", processed);
