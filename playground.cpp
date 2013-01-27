@@ -29,7 +29,6 @@ void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double sca
         }
 }
 
-
 // get next image from video, 24hz
 // get motion ratio
 // compare motion ratio
@@ -44,6 +43,7 @@ int main( int argc, char** argv ) {
     int cannyVal = 30;
     int thresholdVal = 0;
     int motionVal = 0;
+    int facesVal = 0;
 
     cv::namedWindow("playground", CV_WINDOW_NORMAL);
     cv::createTrackbar("resize", "playground", &resizeVal, 50);
@@ -52,12 +52,16 @@ int main( int argc, char** argv ) {
     cv::createTrackbar("adaptive threshold", "playground", &thresholdVal, 50);
     cv::createTrackbar("motion sensitivity", "playground", &motionVal, 50); // TODO make sensitivity thres on vectors.
 
+    cv::CascadeClassifier haar_cascade;
+    haar_cascade.load("haarcascade_frontalface_default.xml");
+    std::vector<cv::Rect> faces;
+
+    Mat frame, previousFrame, flow;
     cv::VideoCapture cap(CV_CAP_ANY); // open the default camera
     if (!cap.isOpened()) {
         return -1;
     }
 
-    Mat frame, previousFrame, flow;
     cap >> frame;
     cv::cvtColor(frame, frame, CV_BGR2GRAY);
     while (true) {
@@ -98,6 +102,13 @@ int main( int argc, char** argv ) {
             std::cout << "flow total : " << res.val[0] + res.val[1] << std::endl;
             cv::cvtColor(processed, processed, CV_GRAY2RGB);
             drawOptFlowMap(flow, processed, 4, 1.5, CV_RGB(0, 255, 0));
+        }
+        if (facesVal != 0) {
+            haar_cascade.detectMultiScale(frame, faces);
+            for (std::vector<cv::Rect>::const_iterator it = faces.begin(); it != faces.end(); ++it) {
+                rectangle(processed, *it, CV_RGB(0, 255,0), 1);
+            }
+
         }
         // TODO face detection
         // TODO trollfaces
