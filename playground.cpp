@@ -59,6 +59,7 @@ int main( int argc, char** argv ) {
     Mat frame, previousFrame, flow;
     cv::VideoCapture cap(CV_CAP_ANY); // open the default camera
     if (!cap.isOpened()) {
+        cout << "unable to open camera" << endl;
         return -1;
     }
 
@@ -106,11 +107,16 @@ int main( int argc, char** argv ) {
         if (facesVal != 0) {
             haar_cascade.detectMultiScale(frame, faces);
             for (std::vector<cv::Rect>::const_iterator it = faces.begin(); it != faces.end(); ++it) {
-                rectangle(processed, *it, CV_RGB(0, 255,0), 1);
+                if (facesVal == 1) {
+                    rectangle(processed, *it, CV_RGB(0, 255,0), 1);
+                } else if (facesVal ==2) {
+                    // put a trollface
+                } else if (facesVal ==3) {
+                    // put a fuuuuuu
+                }
             }
 
         }
-        // TODO face detection
         // TODO trollfaces
         // TODO background filter
         //
