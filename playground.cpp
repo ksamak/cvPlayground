@@ -21,6 +21,8 @@ using std::endl;
 using cv::Mat;
 
 
+#define DOWNSCALE 3
+
 void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double scale, const cv::Scalar& color) {
     for (int y = 0; y < cflowmap.rows; y += step)
         for (int x = 0; x < cflowmap.cols; x += step) {
@@ -38,29 +40,41 @@ void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double sca
 // detect faces, do stuff on it.
 
 int main( int argc, char** argv ) {
+    int frameRateVal = 25;
     int resizeVal = 0;
     int blurVal = 10;
     int cannyVal = 30;
     int thresholdVal = 0;
     int motionVal = 0;
     int facesVal = 0;
+    bool faceDetect = false;
 
     cv::namedWindow("playground", CV_WINDOW_NORMAL);
+    cv::createTrackbar("frame rate", "playground", &frameRateVal, 100);
     cv::createTrackbar("resize", "playground", &resizeVal, 50);
     cv::createTrackbar("gaussian blur", "playground", &blurVal, 50);
     cv::createTrackbar("edge detection", "playground", &cannyVal, 150);
     cv::createTrackbar("adaptive threshold", "playground", &thresholdVal, 50);
     cv::createTrackbar("motion sensitivity", "playground", &motionVal, 50); // TODO make sensitivity thres on vectors.
+    cv::createTrackbar("face detection", "playground", &facesVal, 3); // TODO make sensitivity thres on vectors.
+    //cv::createButton(const string& bar_name, ButtonCallback on_change, void* userdata=NULL, int type=CV_PUSH_BUTTON, bool initial_button_state=0)
+    cv::createButton("face detection", NULL, &faceDetect, CV_PUSH_BUTTON, false);
 
     cv::CascadeClassifier haar_cascade;
     haar_cascade.load("haarcascade_frontalface_default.xml");
     std::vector<cv::Rect> faces;
 
-    Mat frame, previousFrame, flow;
+    Mat trollFace = cv::imread("trollface.png", 0);
+
+    Mat frame, miniFrame, previousFrame, flow;
     cv::VideoCapture cap(CV_CAP_ANY); // open the default camera
     if (!cap.isOpened()) {
-        cout << "unable to open camera" << endl;
-        return -1;
+        cout << "unable to open camera 0" << endl;
+        cap = cv::VideoCapture(1); // open the default camera
+        if (!cap.isOpened()) {
+            cout << "unable to open camera 1" << endl;
+            return -1;
+        }
     }
 
     cap >> frame;
@@ -70,6 +84,7 @@ int main( int argc, char** argv ) {
         previousFrame = frame;
         cap >> frame; // get a new frame from camera
         cv::cvtColor(frame, frame, CV_BGR2GRAY);
+        cv::resize(frame, miniFrame, cv::Size(frame.cols/DOWNSCALE, frame.rows/DOWNSCALE));
         processed = frame;
 
         if (resizeVal != 0) {
@@ -105,11 +120,21 @@ int main( int argc, char** argv ) {
             drawOptFlowMap(flow, processed, 4, 1.5, CV_RGB(0, 255, 0));
         }
         if (facesVal != 0) {
-            haar_cascade.detectMultiScale(frame, faces);
+            if (frame.elemSize() == 1) { // switch to color.
+                cv::cvtColor(frame, frame, CV_GRAY2BGR);
+            }
+            haar_cascade.detectMultiScale(miniFrame, faces);
+            Mat resizedTroll, roi;
+            cv::Rect headSize;
             for (std::vector<cv::Rect>::const_iterator it = faces.begin(); it != faces.end(); ++it) {
+                headSize = cv::Rect(it->x*DOWNSCALE, it->y*DOWNSCALE, it->width*DOWNSCALE, it->height*DOWNSCALE);
                 if (facesVal == 1) {
-                    rectangle(processed, *it, CV_RGB(0, 255,0), 1);
+                    rectangle(processed, headSize, CV_RGB(0, 255,0), 1);
                 } else if (facesVal ==2) {
+                    roi = processed(cv::Range(it->x * DOWNSCALE, (it->x + it->width) * DOWNSCALE), cv::Range(it->y, (it->y + it->height) * DOWNSCALE));
+                    cv::resize(trollFace, resizedTroll, cv::Size(headSize.width, headSize.height));
+                    cout << headSize.x << " : " << headSize.y << "  size " << roi.cols << " " << roi.rows << endl;
+                    roi = Mat::ones(cv::Size(10, 10), CV_8UC1) * 255;
                     // put a trollface
                 } else if (facesVal ==3) {
                     // put a fuuuuuu
@@ -117,7 +142,6 @@ int main( int argc, char** argv ) {
             }
 
         }
-        // TODO trollfaces
         // TODO background filter
         //
 
@@ -126,7 +150,7 @@ int main( int argc, char** argv ) {
 
 
         cv::imshow("playground", processed);
-        if(cv::waitKey(30) >= 0) break;
+        if(cv::waitKey(100 - frameRateVal+1) >= 0) break;
     }
 }
 
