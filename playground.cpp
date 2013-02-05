@@ -24,7 +24,7 @@ using cv::Mat;
 
 
 
-#define DOWNSCALE 3
+#define DOWNSCALE 1.5
 
 void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double scale, const cv::Scalar& color) {
     for (int y = 0; y < cflowmap.rows; y += step)
@@ -51,30 +51,6 @@ int main( int argc, char** argv ) {
     lin_serial_connect("/dev/ttyUSB0");
     uint16_t res[16];
 
-    int frameRateVal = 25;
-    int resizeVal = 0;
-    int blurVal = 10;
-    int cannyVal = 30;
-    int thresholdVal = 0;
-    int motionVal = 0;
-    int facesVal = 0;
-    //bool faceDetect = false;
-
-    cv::namedWindow("playground", CV_WINDOW_NORMAL);
-    cv::createTrackbar("frame rate", "playground", &frameRateVal, 100);
-    cv::createTrackbar("resize", "playground", &resizeVal, 50);
-    cv::createTrackbar("gaussian blur", "playground", &blurVal, 50);
-    cv::createTrackbar("edge detection", "playground", &cannyVal, 150);
-    cv::createTrackbar("adaptive threshold", "playground", &thresholdVal, 50);
-    cv::createTrackbar("motion sensitivity", "playground", &motionVal, 50); // TODO make sensitivity thres on vectors.
-    cv::createTrackbar("face detection", "playground", &facesVal, 3); // TODO make sensitivity thres on vectors.
-    //cv::createButton(const string& bar_name, ButtonCallback on_change, void* userdata=NULL, int type=CV_PUSH_BUTTON, bool initial_button_state=0)
-    //cv::createButton("face detection", NULL, &faceDetect, CV_PUSH_BUTTON, false);
-
-    cv::CascadeClassifier haar_cascade;
-    haar_cascade.load("haarcascade_frontalface_default.xml");
-    std::vector<cv::Rect> faces;
-
     Mat trollFace = cv::imread("trollface.png", 0);
 
     Mat frame, miniFrame, previousFrame, flow;
@@ -90,6 +66,30 @@ int main( int argc, char** argv ) {
 
     cap >> frame;
     cv::cvtColor(frame, frame, CV_BGR2GRAY);
+
+    cv::CascadeClassifier haar_cascade;
+    haar_cascade.load("haarcascade_frontalface_default.xml");
+    std::vector<cv::Rect> faces;
+
+    float aspectRatio = 1.0 * static_cast<float>(frame.cols) / static_cast<float>(frame.rows);
+    int frameRateVal = 100;
+    int resizeVal = frame.rows - 16;
+    int blurVal = 10;
+    int cannyVal = 34;
+    int thresholdVal = 0;
+    int motionVal = 0;
+    int facesVal = 0;
+
+    cv::namedWindow("playground", CV_WINDOW_NORMAL);
+    cv::namedWindow("sliders", CV_WINDOW_NORMAL);
+    cv::createTrackbar("frame rate", "sliders", &frameRateVal, 100);
+    cv::createTrackbar("resize", "sliders", &resizeVal, frame.rows - 16);
+    cv::createTrackbar("gaussian blur", "sliders", &blurVal, 50);
+    cv::createTrackbar("edge detection", "sliders", &cannyVal, 150);
+    cv::createTrackbar("adaptive threshold", "sliders", &thresholdVal, 50);
+    cv::createTrackbar("motion sensitivity", "sliders", &motionVal, 50); // TODO make sensitivity thres on vectors.
+    cv::createTrackbar("face detection", "sliders", &facesVal, 3); // TODO make sensitivity thres on vectors.
+
     while (true) {
         cv::Mat processed;
         previousFrame = frame;
@@ -102,7 +102,8 @@ int main( int argc, char** argv ) {
             if (resizeVal < 16) {
                 resizeVal = 16;
             }
-            cv::resize(processed, processed, cv::Size(resizeVal,resizeVal));
+            std::cout << "aspectRatio " << aspectRatio << "  resizeVal: " << resizeVal << " resizeVal*aspectRatio" << resizeVal*aspectRatio << std::endl;
+            cv::resize(processed, processed, cv::Size((resizeVal+16)*(aspectRatio), resizeVal+16));
         }
 
         if (blurVal != 0) {
@@ -124,11 +125,11 @@ int main( int argc, char** argv ) {
             }
             cv::calcOpticalFlowFarneback(frame, previousFrame, flow, 0.5, 3, 5, 1, 5, 1.2, 0);
             flow = cv::abs(flow);
-            cv::threshold(flow, flow, thresholdVal*1000, 0, cv::THRESH_TOZERO);  // FIXME
+            cv::threshold(flow, flow, motionVal, 0, cv::THRESH_TOZERO);  // FIXME
             cv::Scalar res = cv::sum(flow);
             std::cout << "flow total : " << res.val[0] + res.val[1] << std::endl;
             cv::cvtColor(processed, processed, CV_GRAY2RGB);
-            drawOptFlowMap(flow, processed, 4, 1.5, CV_RGB(0, 255, 0));
+            drawOptFlowMap(flow, processed, 6, 1.5, CV_RGB(0, 255, 0));
         }
         if (facesVal != 0) {
             if (frame.elemSize() == 1) { // switch to color.
@@ -140,7 +141,7 @@ int main( int argc, char** argv ) {
             for (std::vector<cv::Rect>::const_iterator it = faces.begin(); it != faces.end(); ++it) {
                 headSize = cv::Rect(it->x*DOWNSCALE, it->y*DOWNSCALE, it->width*DOWNSCALE, it->height*DOWNSCALE);
                 if (facesVal == 1) {
-                    rectangle(processed, headSize, CV_RGB(0, 255,0), 1);
+                    rectangle(processed, headSize, CV_RGB(0, 255,0), 2);
                 } else if (facesVal ==2) {
                     roi = processed(cv::Range(it->x * DOWNSCALE, (it->x + it->width) * DOWNSCALE), cv::Range(it->y, (it->y + it->height) * DOWNSCALE));
                     cv::resize(trollFace, resizedTroll, cv::Size(headSize.width, headSize.height));
@@ -170,13 +171,13 @@ int main( int argc, char** argv ) {
         int i = 0;
         for (cv::MatConstIterator_<uint8_t> it = processed.begin<uint8_t>(); it != processed.end<uint8_t>(); ++it) {
             for (int j = 0; j < processed.cols; j++) {
-                cout << " "<< static_cast<uint16_t>(*it);
+                //cout << " "<< static_cast<uint16_t>(*it);
                 if (*it > 1) {
                     res[i] |= (0b1 << j) ;
                 }
                 ++it;
             }
-            cout << endl;
+            //cout << endl;
             i++;
         }
         lin_serial_send(res, 32);
@@ -185,18 +186,13 @@ int main( int argc, char** argv ) {
             //std::cout << res[i] << std::endl;
             for (int j =0; j < 16; j++) {
                 printf(" %d", (res[i] & (0b1 << j)) >> j);
-                /*if (res[i] && (0b1 << j)) {
-                    cout << "1";
-                } else {
-                    cout << "0";
-                }*/
             }
             cout << endl;
         }
         cout << endl << endl;
 
-
-        if(cv::waitKey(100 - frameRateVal+1) >= 0) break;
+        if(cv::waitKey(100 - frameRateVal+1) >= 0) {
+        }
     }
 }
 
