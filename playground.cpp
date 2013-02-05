@@ -4,6 +4,7 @@
 //#include <highgui.h>
 //#include <imgproc.hpp>
 
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/tracking.hpp>
@@ -11,14 +12,16 @@
 #include <opencv2/objdetect/objdetect.hpp>
 //#define DEBUG
 
-//#include <stdint.h>
+#include <stdint.h>
 #include <string>
 #include <iostream>
 #include <exception>
+#include <stdio.h>
 
 using std::cout;
 using std::endl;
 using cv::Mat;
+
 
 
 #define DOWNSCALE 3
@@ -39,7 +42,15 @@ void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double sca
 // 	if not, then slirgly update background levels.
 // detect faces, do stuff on it.
 
+
+void lin_serial_send(void* pdata, unsigned int size);
+int lin_serial_connect(char*);
+
 int main( int argc, char** argv ) {
+
+    lin_serial_connect("/dev/ttyUSB0");
+    uint16_t res[16];
+
     int frameRateVal = 25;
     int resizeVal = 0;
     int blurVal = 10;
@@ -47,7 +58,7 @@ int main( int argc, char** argv ) {
     int thresholdVal = 0;
     int motionVal = 0;
     int facesVal = 0;
-    bool faceDetect = false;
+    //bool faceDetect = false;
 
     cv::namedWindow("playground", CV_WINDOW_NORMAL);
     cv::createTrackbar("frame rate", "playground", &frameRateVal, 100);
@@ -58,7 +69,7 @@ int main( int argc, char** argv ) {
     cv::createTrackbar("motion sensitivity", "playground", &motionVal, 50); // TODO make sensitivity thres on vectors.
     cv::createTrackbar("face detection", "playground", &facesVal, 3); // TODO make sensitivity thres on vectors.
     //cv::createButton(const string& bar_name, ButtonCallback on_change, void* userdata=NULL, int type=CV_PUSH_BUTTON, bool initial_button_state=0)
-    cv::createButton("face detection", NULL, &faceDetect, CV_PUSH_BUTTON, false);
+    //cv::createButton("face detection", NULL, &faceDetect, CV_PUSH_BUTTON, false);
 
     cv::CascadeClassifier haar_cascade;
     haar_cascade.load("haarcascade_frontalface_default.xml");
@@ -134,22 +145,57 @@ int main( int argc, char** argv ) {
                     roi = processed(cv::Range(it->x * DOWNSCALE, (it->x + it->width) * DOWNSCALE), cv::Range(it->y, (it->y + it->height) * DOWNSCALE));
                     cv::resize(trollFace, resizedTroll, cv::Size(headSize.width, headSize.height));
                     cout << headSize.x << " : " << headSize.y << "  size " << roi.cols << " " << roi.rows << endl;
+                    
                     roi = Mat::ones(cv::Size(10, 10), CV_8UC1) * 255;
                     // put a trollface
                 } else if (facesVal ==3) {
                     // put a fuuuuuu
                 }
             }
-
         }
-        // TODO background filter
+        // TODO background adaptive filter
         //
 
         // TODO: train a face live?
         // Methodo: get face. get images from face. rotate and crop. re-train the algo.
 
-
         cv::imshow("playground", processed);
+
+        for (int i = 0; i < 16; i++) {
+            res[i] =0;
+        }
+
+        // TODO function for net Output.
+        cv::resize(processed, processed, cv::Size(16,16));
+        int i = 0;
+        for (cv::MatConstIterator_<uint8_t> it = processed.begin<uint8_t>(); it != processed.end<uint8_t>(); ++it) {
+            for (int j = 0; j < processed.cols; j++) {
+                cout << " "<< static_cast<uint16_t>(*it);
+                if (*it > 1) {
+                    res[i] |= (0b1 << j) ;
+                }
+                ++it;
+            }
+            cout << endl;
+            i++;
+        }
+        lin_serial_send(res, 32);
+
+        for (int i =0; i < 16; i++) {
+            //std::cout << res[i] << std::endl;
+            for (int j =0; j < 16; j++) {
+                printf(" %d", (res[i] & (0b1 << j)) >> j);
+                /*if (res[i] && (0b1 << j)) {
+                    cout << "1";
+                } else {
+                    cout << "0";
+                }*/
+            }
+            cout << endl;
+        }
+        cout << endl << endl;
+
+
         if(cv::waitKey(100 - frameRateVal+1) >= 0) break;
     }
 }

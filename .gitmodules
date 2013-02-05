@@ -1,0 +1,3 @@
+[submodule "16x16"]
+	path = 16x16
+	url = ./16x16/

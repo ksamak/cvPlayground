@@ -5,7 +5,9 @@ project( visionNetLights )
 find_package( OpenCV REQUIRED )
 
 add_executable( visionForNetLights
-	playground.cpp )
+	playground.cpp
+    16x16/test/test_serial.cpp
+    )
 
 target_link_libraries(
 	visionForNetLights
@@ -13,9 +15,10 @@ target_link_libraries(
        	)
 
 add_executable( faceRecognition
-    faceRecognition.cpp )
+    faceRecognition.cpp
+    )
 
 target_link_libraries(
     faceRecognition
-       	${OpenCV_LIBS}
+    ${OpenCV_LIBS}
        	)
