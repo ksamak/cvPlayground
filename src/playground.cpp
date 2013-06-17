@@ -162,6 +162,14 @@ int main( int argc, char** argv ) {
             }
             std::cout << "scalar " << res[0] << " " << res[1] << std::endl;
         }*/
+
+        /*
+         * initialize background
+         * get next frame, analyze spacial variation
+         * get active areas, find potential heads
+         * if heads present, continuously track
+         * act accordingly
+         */
         if (facesVal != 0) {
             if (frame.elemSize() == 1) { // switch to color.
                 cv::cvtColor(frame, frame, CV_GRAY2BGR);

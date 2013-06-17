@@ -5,8 +5,8 @@ project( playground )
 find_package( OpenCV REQUIRED )
 
 add_executable( playground
-	playground.cpp
-    serial.cpp
+	src/playground.cpp
+    src/serial.cpp
     )
 
 target_link_libraries(
