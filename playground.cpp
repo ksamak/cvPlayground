@@ -1,5 +1,5 @@
 
-// use if opencv ws compiled?
+// use if opencv was compiled? FIXME
 //#include <cv.h>
 //#include <highgui.h>
 //#include <imgproc.hpp>
@@ -12,19 +12,24 @@
 #include <opencv2/objdetect/objdetect.hpp>
 //#define DEBUG
 
+#include "serial.h"
+
 #include <stdint.h>
 #include <string>
 #include <iostream>
 #include <exception>
 #include <stdio.h>
+#include <unistd.h>
 
 using std::cout;
 using std::endl;
 using cv::Mat;
 
 
+#define DOWNSCALE 1.3 // was 1.5
+#define TINY_DOWNSCALE 3
+#define NETLIGHTMODE false
 
-#define DOWNSCALE 1.5
 
 void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double scale, const cv::Scalar& color) {
     for (int y = 0; y < cflowmap.rows; y += step)
@@ -34,26 +39,30 @@ void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step, double sca
         }
 }
 
-// get next image from video, 24hz
-// get motion ratio
-// compare motion ratio
-// 	if > threshold then 
-// 		get foreground, modify and display on screen
-// 	if not, then slirgly update background levels.
-// detect faces, do stuff on it.
-
-
-void lin_serial_send(void* pdata, unsigned int size);
-int lin_serial_connect(char*);
 
 int main( int argc, char** argv ) {
 
-    lin_serial_connect("/dev/ttyUSB0");
+    int serial = 0;
+
+    const char* port = "/dev/ttyUSB0";
+    if (!NETLIGHTMODE) {
+        serial = lin_serial_connect(port, B9600, 0, 0);
+       //serial = open ("/dev/ttyUSB0", O_RDWR | O_NOCTTY | O_SYNC); // serial to the servos.
+        if (serial < 0) {
+            std::cout << "Eroor!" << std::endl;
+        }
+        //set_interface_attribs (serial, B9600, 0);  // set speed to 115,200 bps, 8n1 (no parity)
+        //set_blocking (serial, 0);                // set no blocking
+    } else {
+        lin_serial_connect(port);
+    }
     uint16_t res[16];
 
-    Mat trollFace = cv::imread("trollface.png", 0);
+    Mat trollFace = cv::imread("trollface.png", -1);
 
     Mat frame, miniFrame, previousFrame, flow;
+    Mat tinyFrame, tinyPreviousFrame;
+
     cv::VideoCapture cap(CV_CAP_ANY); // open the default camera
     if (!cap.isOpened()) {
         cout << "unable to open camera 0" << endl;
@@ -73,11 +82,12 @@ int main( int argc, char** argv ) {
 
     float aspectRatio = 1.0 * static_cast<float>(frame.cols) / static_cast<float>(frame.rows);
     int frameRateVal = 100;
-    int resizeVal = frame.rows - 16;
-    int blurVal = 10;
-    int cannyVal = 34;
+    int resizeVal = 0; //frame.rows - 16;
+    int blurVal = 0;
+    int cannyVal = 0;
     int thresholdVal = 0;
     int motionVal = 0;
+    int motionVal2 = 0;
     int facesVal = 0;
 
     cv::namedWindow("playground", CV_WINDOW_NORMAL);
@@ -88,13 +98,15 @@ int main( int argc, char** argv ) {
     cv::createTrackbar("edge detection", "sliders", &cannyVal, 150);
     cv::createTrackbar("adaptive threshold", "sliders", &thresholdVal, 50);
     cv::createTrackbar("motion sensitivity", "sliders", &motionVal, 50); // TODO make sensitivity thres on vectors.
+    cv::createTrackbar("camera sensitivity", "sliders", &motionVal2, 50); // TODO make sensitivity thres on vectors.
     cv::createTrackbar("face detection", "sliders", &facesVal, 3); // TODO make sensitivity thres on vectors.
 
     while (true) {
         cv::Mat processed;
         previousFrame = frame;
         cap >> frame; // get a new frame from camera
-        cv::cvtColor(frame, frame, CV_BGR2GRAY);
+        //cv::cvtColor(frame, frame, CV_BGR2GRAY);
+        cv::cvtColor(frame, frame, CV_BGR2BGRA);
         cv::resize(frame, miniFrame, cv::Size(frame.cols/DOWNSCALE, frame.rows/DOWNSCALE));
         processed = frame;
 
@@ -115,6 +127,7 @@ int main( int argc, char** argv ) {
         }
         if (thresholdVal !=0) {
             cv::adaptiveThreshold(processed, processed, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 19, thresholdVal);
+            cv::bitwise_not(processed, processed);
         }
         if (motionVal != 0 && frame.size() == previousFrame.size()) {
             if (frame.elemSize() != 1) {
@@ -131,6 +144,24 @@ int main( int argc, char** argv ) {
             cv::cvtColor(processed, processed, CV_GRAY2RGB);
             drawOptFlowMap(flow, processed, 6, 1.5, CV_RGB(0, 255, 0));
         }
+/*        if (!NETLIGHTMODE && frame.size() == previousFrame.size()) {
+            cv::resize(frame, tinyFrame, cv::Size(frame.cols / TINY_DOWNSCALE, frame.rows / TINY_DOWNSCALE));
+            cv::resize(previousFrame, tinyPreviousFrame, cv::Size(frame.cols / TINY_DOWNSCALE, frame.rows / TINY_DOWNSCALE));
+            cv::calcOpticalFlowFarneback(tinyFrame, tinyPreviousFrame, flow, 0.5, 3, 5, 1, 5, 1.2, 0);
+            cv::threshold(flow, flow, motionVal2, 0, cv::THRESH_TOZERO);  // FIXME  makes next process bug.
+            cv::Scalar res = cv::sum(flow);
+            if (res[0] > 0 && res[0] > 2500) {
+                write(serial, "s\n", 2);
+            } else if (res[0] > 2500) {
+                write(serial, "w\n", 2);
+            }
+            if (res[1] > 0 && res[0] > 2500) {
+                write(serial, "a\n", 2);
+            } else if (res[1] > 2500) {
+                write(serial, "d\n", 2);
+            }
+            std::cout << "scalar " << res[0] << " " << res[1] << std::endl;
+        }*/
         if (facesVal != 0) {
             if (frame.elemSize() == 1) { // switch to color.
                 cv::cvtColor(frame, frame, CV_GRAY2BGR);
@@ -143,12 +174,11 @@ int main( int argc, char** argv ) {
                 if (facesVal == 1) {
                     rectangle(processed, headSize, CV_RGB(0, 255,0), 2);
                 } else if (facesVal ==2) {
-                    roi = processed(cv::Range(it->x * DOWNSCALE, (it->x + it->width) * DOWNSCALE), cv::Range(it->y, (it->y + it->height) * DOWNSCALE));
-                    cv::resize(trollFace, resizedTroll, cv::Size(headSize.width, headSize.height));
-                    cout << headSize.x << " : " << headSize.y << "  size " << roi.cols << " " << roi.rows << endl;
-                    
-                    roi = Mat::ones(cv::Size(10, 10), CV_8UC1) * 255;
-                    // put a trollface
+                    roi = processed.colRange(it->x * DOWNSCALE, (it->x + it->width) * DOWNSCALE).rowRange(it->y, (it->y + it->height) * DOWNSCALE);
+                    cv::resize(trollFace, resizedTroll, roi.size());
+                    std::vector<cv::Mat> alphaMask;
+                    cv::split(resizedTroll, alphaMask);
+                    resizedTroll.copyTo(roi, alphaMask[3]);
                 } else if (facesVal ==3) {
                     // put a fuuuuuu
                 }
@@ -161,35 +191,6 @@ int main( int argc, char** argv ) {
         // Methodo: get face. get images from face. rotate and crop. re-train the algo.
 
         cv::imshow("playground", processed);
-
-        for (int i = 0; i < 16; i++) {
-            res[i] =0;
-        }
-
-        // TODO function for net Output.
-        cv::resize(processed, processed, cv::Size(16,16));
-        int i = 0;
-        for (cv::MatConstIterator_<uint8_t> it = processed.begin<uint8_t>(); it != processed.end<uint8_t>(); ++it) {
-            for (int j = 0; j < processed.cols; j++) {
-                //cout << " "<< static_cast<uint16_t>(*it);
-                if (*it > 1) {
-                    res[i] |= (0b1 << j) ;
-                }
-                ++it;
-            }
-            //cout << endl;
-            i++;
-        }
-        lin_serial_send(res, 32);
-
-        for (int i =0; i < 16; i++) {
-            //std::cout << res[i] << std::endl;
-            for (int j =0; j < 16; j++) {
-                printf(" %d", (res[i] & (0b1 << j)) >> j);
-            }
-            cout << endl;
-        }
-        cout << endl << endl;
 
         if(cv::waitKey(100 - frameRateVal+1) >= 0) {
         }

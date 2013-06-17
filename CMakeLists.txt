@@ -1,24 +1,15 @@
 cmake_minimum_required(VERSION 2.8)
 
-project( visionNetLights )
+project( playground )
 
 find_package( OpenCV REQUIRED )
 
-add_executable( visionForNetLights
+add_executable( playground
 	playground.cpp
-    16x16/test/test_serial.cpp
+    serial.cpp
     )
 
 target_link_libraries(
-	visionForNetLights
-       	${OpenCV_LIBS}
-       	)
-
-add_executable( faceRecognition
-    faceRecognition.cpp
-    )
-
-target_link_libraries(
-    faceRecognition
+	playground
     ${OpenCV_LIBS}
-       	)
+    )
